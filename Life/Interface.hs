@@ -1,7 +1,7 @@
 module Life.Interface
   (initializeScreen) where
 
-import Data.Array.IArray (assocs, (//), (!))
+import Data.Array.IArray (assocs, bounds, (//), (!))
 import Control.Monad (when, sequence_)
 import System.Exit (exitFailure)
 import Graphics.UI.SDL as SDL
@@ -69,6 +69,8 @@ keyDown state SDLK_PLUS = return $ state { interval = substract . interval $ sta
   where substract n = if 10 < n then n - 10 else n
 keyDown state SDLK_MINUS = return $ state { interval = add . interval $ state }
   where add n = if n < 1500 then n + 10 else n
+keyDown state SDLK_c = return $ state { grids = [emptyGrid gridSize] }
+  where gridSize = let (_, size) = bounds $ head $ grids state in size
 keyDown state SDLK_q = return $ state { running = False }
 keyDown state _ = return state
 
@@ -105,5 +107,6 @@ drawGrid surface grid = do
 render :: SDL.Surface -> GameState -> IO ()
 render screen state = do
   drawGrid screen $ head $ grids state
-  SDL.flip screen
+  SDL.tryFlip screen
+  return ()
 

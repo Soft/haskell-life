@@ -1,5 +1,5 @@
 module Life.Logic
-  (Cell(..), Coords(..), Grid, toggle, step, boundedNeighbors, stepCell, emptyGrid, printGrid, testGrid) where
+  (Cell(..), Coords(..), Grid, toggle, step, boundedNeighbors, stepCell, emptyGrid) where
 
 import Data.Array.IArray
 import Control.Monad (liftM2, mapM_)
@@ -44,25 +44,5 @@ stepCell Dead neighbors
 
 emptyGrid :: (Int, Int) -> Grid
 emptyGrid size = listArray ((0, 0), size) $ repeat Dead
-
--- Testing
-
-testGrid :: Grid
-testGrid = listArray ((0, 0), (6, 6)) $ map toEnum $ concat $ transpose grid
-  where
-    grid = [[ 0, 0, 0, 0, 0, 0, 0 ]
-           ,[ 0, 0, 1, 0, 0, 0, 0 ]
-           ,[ 0, 0, 0, 1, 0, 0, 0 ]
-           ,[ 0, 1, 1, 1, 0, 0, 0 ]
-           ,[ 0, 0, 0, 0, 0, 0, 0 ]
-           ,[ 0, 0, 0, 0, 0, 0, 0 ]
-           ,[ 0, 0, 0, 0, 0, 0, 0 ]]
-
-printGrid :: Grid -> IO ()
-printGrid grid = mapM_ (putStrLn . concat) lines
-  where
-    lines = [[show . fromEnum $ grid ! (x, y) | x <- [x1..x2]] | y <- [y1..y2]]
-    ((x1, y1), (x2, y2)) = bounds grid
-
 
 
