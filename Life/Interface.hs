@@ -1,7 +1,7 @@
 module Life.Interface
   (initializeScreen) where
 
-import Data.Array.IArray (assocs)
+import Data.Array.IArray (assocs, (//), (!))
 import Control.Monad (when, sequence_)
 import System.Exit (exitFailure)
 import Graphics.UI.SDL as SDL
@@ -15,20 +15,22 @@ data GameState = GameState {
   , auto :: Bool
   }
 
--- defaultState = GameState [emptyGrid (10, 10)] 1000 True
-defaultState = GameState [testGrid] 1000 True False
+defaultState grid = GameState [grid] 1000 True False
 
 initializeScreen :: IO ()
 initializeScreen = do
   SDL.init flags
-  screen <- SDL.trySetVideoMode 640 480 32 surfaceFlags
+  screen <- SDL.trySetVideoMode width height 32 surfaceFlags
   SDL.setCaption "Life" "life"
   case screen of
     Nothing -> exitFailure
-    Just s -> gameLoop s defaultState
+    Just s -> gameLoop s $ defaultState (emptyGrid gridSize)
   where
     flags = [SDL.InitVideo]
-    surfaceFlags = [SDL.SWSurface]
+    surfaceFlags = [SDL.HWSurface]
+    gridSize = (width `quot` 10, height `quot` 10)
+    width = 640
+    height = 480
 
 gameLoop :: SDL.Surface -> GameState -> IO ()
 gameLoop screen state = do
@@ -39,6 +41,7 @@ gameLoop screen state = do
 handleEvents :: GameState -> SDL.Event -> IO GameState
 handleEvents state SDL.Quit = SDL.quit >> return (state { running = False })
 handleEvents state (SDL.KeyDown key) = keyDown state (symKey key)
+handleEvents state (SDL.MouseButtonDown _ _ button) = mouseButtonDown state button
 handleEvents state _ = return state
 
 keyDown :: GameState -> SDL.SDLKey -> IO GameState
@@ -51,6 +54,17 @@ keyDown state SDLK_BACKSPACE = return $ state { grids = prev . grids $ state}
 keyDown state SDLK_RETURN = return $ state { auto = not . auto $ state }
 keyDown state SDLK_q = return $ state { running = False }
 keyDown state _ = return state
+
+mouseButtonDown :: GameState -> SDL.MouseButton -> IO GameState
+mouseButtonDown state SDL.ButtonLeft = do
+  (x, y, _) <- SDL.getMouseState
+  coords <- return $ posToCoords x y
+  new <- return $ grid // [(coords, toggle $ grid ! coords)]
+  return $ state { grids = new : grids state }
+  where
+    posToCoords x y = (x `quot` 10, y `quot` 10)
+    grid = head . grids $ state
+mouseButtonDown state _ = return state
 
 createColor :: SDL.Surface -> Word8 -> Word8 -> Word8 -> IO Pixel
 createColor surface r g b = SDL.mapRGB (SDL.surfaceGetPixelFormat surface) r g b

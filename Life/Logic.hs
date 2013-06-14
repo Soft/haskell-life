@@ -1,5 +1,5 @@
 module Life.Logic
-  (Cell(..), Coords(..), Grid, step, boundedNeighbors, stepCell, emptyGrid, printGrid, testGrid) where
+  (Cell(..), Coords(..), Grid, toggle, step, boundedNeighbors, stepCell, emptyGrid, printGrid, testGrid) where
 
 import Data.Array.IArray
 import Control.Monad (liftM2, mapM_)
@@ -10,6 +10,10 @@ data Cell = Dead | Living
   deriving (Eq, Enum)
 type Coords = (Int, Int)
 type Grid = Array Coords Cell
+
+toggle :: Cell -> Cell
+toggle Dead = Living
+toggle Living = Dead
 
 step :: Grid -> Grid
 step grid = listArray size $ map newState (indices grid)
