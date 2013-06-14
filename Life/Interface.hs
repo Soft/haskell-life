@@ -15,16 +15,17 @@ data GameState = GameState {
   , auto :: Bool
   }
 
-defaultState grid = GameState [grid] 1000 True False
+defaultState grid = GameState [grid] 100 True False
 
 initializeScreen :: IO ()
 initializeScreen = do
   SDL.init flags
   screen <- SDL.trySetVideoMode width height 32 surfaceFlags
   SDL.setCaption "Life" "life"
+  time <- getTicks
   case screen of
     Nothing -> exitFailure
-    Just s -> gameLoop s $ defaultState (emptyGrid gridSize)
+    Just s -> gameLoop s time $ defaultState (emptyGrid gridSize)
   where
     flags = [SDL.InitVideo]
     surfaceFlags = [SDL.HWSurface]
@@ -32,11 +33,21 @@ initializeScreen = do
     width = 640
     height = 480
 
-gameLoop :: SDL.Surface -> GameState -> IO ()
-gameLoop screen state = do
-  render screen state
-  newState <- SDL.waitEvent >>= (handleEvents state)
-  when (running newState) $ gameLoop screen newState
+gameLoop :: SDL.Surface -> Word32 -> GameState -> IO ()
+gameLoop screen time state = do
+  (lastUpdate, state') <- performTimedEvents
+  render screen state'
+  newState <- SDL.pollEvent >>= (handleEvents state')
+  delay 10
+  when (running newState) $ gameLoop screen lastUpdate newState
+  where
+    performTimedEvents = do
+      now <- getTicks
+      needsUpdate <- return $ (now - time) >= (interval state)
+      if needsUpdate && (auto state) then
+        return (now, stepState state)
+        else
+        return (time, state)
 
 handleEvents :: GameState -> SDL.Event -> IO GameState
 handleEvents state SDL.Quit = SDL.quit >> return (state { running = False })
@@ -44,14 +55,20 @@ handleEvents state (SDL.KeyDown key) = keyDown state (symKey key)
 handleEvents state (SDL.MouseButtonDown _ _ button) = mouseButtonDown state button
 handleEvents state _ = return state
 
-keyDown :: GameState -> SDL.SDLKey -> IO GameState
-keyDown state SDLK_SPACE = return $ state { grids = next : grids state }
+stepState state = state { grids = next : grids state }
   where next = step . head . grids $ state
+
+keyDown :: GameState -> SDL.SDLKey -> IO GameState
+keyDown state SDLK_SPACE = return $ stepState state
 keyDown state SDLK_BACKSPACE = return $ state { grids = prev . grids $ state}
   where prev xs
           | null . tail $ xs = xs
           | otherwise = tail xs
 keyDown state SDLK_RETURN = return $ state { auto = not . auto $ state }
+keyDown state SDLK_PLUS = return $ state { interval = substract . interval $ state }
+  where substract n = if 10 < n then n - 10 else n
+keyDown state SDLK_MINUS = return $ state { interval = add . interval $ state }
+  where add n = if n < 1500 then n + 10 else n
 keyDown state SDLK_q = return $ state { running = False }
 keyDown state _ = return state
 
