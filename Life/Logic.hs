@@ -1,32 +1,38 @@
 module Life.Logic
-  (Cell(..), Coords(..), Grid, toggle, step, boundedNeighbors, stepCell, emptyGrid) where
+  (Cell(..), Coords, Grid, NeighborMapper, toggle, step, boundedNeighbors
+  , infiniteNeighbors, stepCell, emptyGrid) where
 
 import Data.Array.IArray
 import Control.Monad (liftM2, mapM_)
 import Control.Arrow ((***), (&&&))
-import Data.List (delete, transpose)
+import Data.List (delete)
 
 data Cell = Dead | Living
   deriving (Eq, Enum)
 type Coords = (Int, Int)
 type Grid = Array Coords Cell
+type NeighborMapper = (Coords, Coords) -> Coords -> [Coords]
 
 toggle :: Cell -> Cell
 toggle Dead = Living
 toggle Living = Dead
 
-step :: Grid -> Grid
-step grid = listArray size $ map newState (indices grid)
+step :: NeighborMapper -> Grid -> Grid
+step mapper grid = listArray size $ map newState (indices grid)
   where
     newState = uncurry stepCell . ((grid !) &&& livingCount)
     livingCount = sum . map fromEnum . neighbors
-    neighbors = map (grid !) . boundedNeighbors size
+    neighbors = map (grid !) . mapper size
     size = bounds grid
 
-boundedNeighbors :: (Coords, Coords) -> Coords -> [Coords]
+boundedNeighbors :: NeighborMapper
 boundedNeighbors bounds = filter (inRange bounds) . neighbors'
 
--- infiniteNeighbors :: (Coords, Coords) -> Coords -> [Coords]
+infiniteNeighbors :: NeighborMapper
+infiniteNeighbors (_, (mx, my)) = map wrapAround . neighbors'
+  where
+    wrapAround (x, y) = (wrap mx x, wrap my y)
+    wrap max n = n `mod` max
 
 neighbors' :: Coords -> [Coords]
 neighbors' (x, y) = map ((+x) *** (+y)) offsets

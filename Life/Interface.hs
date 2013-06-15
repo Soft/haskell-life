@@ -13,9 +13,10 @@ data GameState = GameState {
   , interval :: Word32
   , running :: Bool
   , auto :: Bool
+  , infinite :: Bool
   }
 
-defaultState grid = GameState [grid] 100 True False
+defaultState grid = GameState [grid] 100 True False True
 
 initializeScreen :: IO ()
 initializeScreen = do
@@ -56,7 +57,9 @@ handleEvents state (SDL.MouseButtonDown _ _ button) = mouseButtonDown state butt
 handleEvents state _ = return state
 
 stepState state = state { grids = next : grids state }
-  where next = step . head . grids $ state
+  where
+    next = (step mapper) . head . grids $ state
+    mapper = if infinite state then infiniteNeighbors else boundedNeighbors
 
 keyDown :: GameState -> SDL.SDLKey -> IO GameState
 keyDown state SDLK_SPACE = return $ stepState state
@@ -71,6 +74,7 @@ keyDown state SDLK_MINUS = return $ state { interval = add . interval $ state }
   where add n = if n < 1500 then n + 10 else n
 keyDown state SDLK_c = return $ state { grids = [emptyGrid gridSize] }
   where gridSize = let (_, size) = bounds $ head $ grids state in size
+keyDown state SDLK_t = return $ state { infinite = not . infinite $ state}
 keyDown state SDLK_q = return $ state { running = False }
 keyDown state _ = return state
 

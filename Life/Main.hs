@@ -14,7 +14,8 @@ help = [ "Conway's Game of Life"
        , "  Return\tStart simulation"
        , "  Plus\t\tIncrease speed"
        , "  Minus\t\tDecrease speed"
-       , "  c\t\tClear grid"
+       , "  c\t\tClear the grid"
+       , "  t\t\tToggle between infinite and bounded grid"
        , "  q\t\tQuit" ]
 
 main :: IO ()
