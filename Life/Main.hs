@@ -21,8 +21,8 @@ help = [ "Conway's Game of Life"
 main :: IO ()
 main = do
   args <- getArgs
-  if elem "-h" args then
-    mapM_ putStrLn help
+  if "-h" `elem` args then
+      mapM_ putStrLn help
     else
-    initializeScreen
+      initializeScreen
 

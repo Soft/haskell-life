@@ -38,17 +38,17 @@ gameLoop :: SDL.Surface -> Word32 -> GameState -> IO ()
 gameLoop screen time state = do
   (lastUpdate, state') <- performTimedEvents
   render screen state'
-  newState <- SDL.pollEvent >>= (handleEvents state')
+  newState <- SDL.pollEvent >>= handleEvents state'
   delay 10
   when (running newState) $ gameLoop screen lastUpdate newState
   where
     performTimedEvents = do
       now <- getTicks
-      needsUpdate <- return $ (now - time) >= (interval state)
-      if needsUpdate && (auto state) then
-        return (now, stepState state)
-        else
-        return (time, state)
+      let needsUpdate = (now - time) >= interval state
+      return $ if needsUpdate && auto state then
+                  (now, stepState state)
+                else
+                  (time, state)
 
 handleEvents :: GameState -> SDL.Event -> IO GameState
 handleEvents state SDL.Quit = SDL.quit >> return (state { running = False })
@@ -58,7 +58,7 @@ handleEvents state _ = return state
 
 stepState state = state { grids = next : grids state }
   where
-    next = (step mapper) . head . grids $ state
+    next = step mapper . head . grids $ state
     mapper = if infinite state then infiniteNeighbors else boundedNeighbors
 
 keyDown :: GameState -> SDL.SDLKey -> IO GameState
@@ -81,8 +81,8 @@ keyDown state _ = return state
 mouseButtonDown :: GameState -> SDL.MouseButton -> IO GameState
 mouseButtonDown state SDL.ButtonLeft = do
   (x, y, _) <- SDL.getMouseState
-  coords <- return $ posToCoords x y
-  new <- return $ grid // [(coords, toggle $ grid ! coords)]
+  let coords = posToCoords x y
+  let new = grid // [(coords, toggle $ grid ! coords)]
   return $ state { grids = new : grids state }
   where
     posToCoords x y = (x `quot` 10, y `quot` 10)
@@ -90,7 +90,7 @@ mouseButtonDown state SDL.ButtonLeft = do
 mouseButtonDown state _ = return state
 
 createColor :: SDL.Surface -> Word8 -> Word8 -> Word8 -> IO Pixel
-createColor surface r g b = SDL.mapRGB (SDL.surfaceGetPixelFormat surface) r g b
+createColor surface = SDL.mapRGB $ SDL.surfaceGetPixelFormat surface
 
 drawGrid :: SDL.Surface -> Grid -> IO ()
 drawGrid surface grid = do
@@ -102,11 +102,11 @@ drawGrid surface grid = do
   sequence_ [vline x 0 480 borderColor | x <- [0, 10..640]]
   sequence_ [cell state coords cellColor | (coords, state) <- assocs grid]
   where
-    hline x y length color = fillRect surface (Just $ Rect x y length 1) color
-    vline x y length color = fillRect surface (Just $ Rect x y 1 length) color
-    cell Living coords color = fillRect surface (Just $ cellRect coords) color
-    cell Dead _ _ = return True
-    cellRect coords = Rect ((fst coords) * 10) ((snd coords) * 10) 10 10
+    hline x y length = fillRect surface $ Just $ Rect x y length 1
+    vline x y length = fillRect surface $ Just $ Rect x y 1 length
+    cell Living coords = fillRect surface $ Just $ cellRect coords
+    cell Dead _ = const $ return True
+    cellRect coords = Rect (fst coords * 10) (snd coords * 10) 10 10
 
 render :: SDL.Surface -> GameState -> IO ()
 render screen state = do
