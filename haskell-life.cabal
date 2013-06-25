@@ -22,4 +22,4 @@ executable life
   ghc-options:         -main-is Life.Main
   main-is:             Life/Main.hs
   other-modules:       Life.Logic, Life.Interface, Life.Main
-  build-depends:       base ==4.6.*, array ==0.4.*, SDL ==0.6.*, lens ==3.9.*
+  build-depends:       base ==4.6.*, array ==0.4.*, SDL ==0.6.*, lens ==3.9.*, semigroups ==0.9.*

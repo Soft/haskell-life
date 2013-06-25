@@ -2,16 +2,18 @@
 module Life.Interface
   (initializeScreen) where
 
-import Data.Array.IArray (assocs, bounds, (//), (!))
-import Control.Monad (when)
-import System.Exit (exitFailure)
+import Prelude hiding (head, tail)
 import qualified Graphics.UI.SDL as SDL
+import System.Exit (exitFailure)
+import Data.Array.IArray (assocs, bounds, (//), (!))
 import Data.Word (Word32, Word8)
-import Control.Lens
+import Data.List.NonEmpty
+import Control.Monad (when)
+import Control.Lens hiding ((<|), uncons)
 import Life.Logic
 
 data GameState = GameState {
-    _grids :: [Grid]
+    _grids :: NonEmpty Grid
   , _interval :: Word32
   , _running :: Bool
   , _auto :: Bool
@@ -21,7 +23,7 @@ data GameState = GameState {
 makeLenses ''GameState
 
 defaultState :: Grid -> GameState
-defaultState grid = GameState [grid] 100 True False True
+defaultState grid = GameState (grid :| []) 100 True False True
 
 initializeScreen :: IO ()
 initializeScreen = do
@@ -62,7 +64,7 @@ handleEvents (SDL.MouseButtonDown _ _ button) = mouseButtonDown button
 handleEvents _ = return
 
 stepState :: GameState -> GameState
-stepState state = grids %~ (next :) $ state
+stepState state = grids %~ (next <|) $ state
   where
     next = step mapper . head $ state ^. grids
     mapper = if state ^. infinite then infiniteNeighbors else boundedNeighbors
@@ -70,16 +72,16 @@ stepState state = grids %~ (next :) $ state
 keyDown :: SDL.SDLKey -> GameState -> GameState
 keyDown SDL.SDLK_SPACE = stepState
 keyDown SDL.SDLK_BACKSPACE = grids %~ prev
-  where prev xs
-          | null . tail $ xs = xs
-          | otherwise = tail xs
+  where prev xs = case uncons xs of
+                    (_, Nothing) -> xs
+                    (_, Just s) -> s
 keyDown SDL.SDLK_RETURN = auto %~ not
 keyDown SDL.SDLK_PLUS = interval %~ substract
   where substract n = if 10 < n then n - 10 else n
 keyDown SDL.SDLK_MINUS = interval %~ add
   where add n = if n < 1500 then n + 10 else n
 keyDown SDL.SDLK_c = \s -> let (_, size) = bounds . head $ s ^. grids
-  in grids .~ [emptyGrid size] $ s
+  in grids .~ (emptyGrid size :| []) $ s
 keyDown SDL.SDLK_t = infinite %~ not
 keyDown SDL.SDLK_q = running .~ False
 keyDown _ = id
@@ -89,7 +91,7 @@ mouseButtonDown SDL.ButtonLeft state = do
   (x, y, _) <- SDL.getMouseState
   let coords = posToCoords x y
   let new = grid // [(coords, toggle $ grid ! coords)]
-  return (grids %~ (new :) $ state)
+  return (grids %~ (new <|) $ state)
   where
     posToCoords x y = (x `quot` 10, y `quot` 10)
     grid = head $ state ^. grids
