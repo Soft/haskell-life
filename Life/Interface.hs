@@ -57,7 +57,7 @@ gameLoop screen time state = do
 
 handleEvents :: SDL.Event -> GameState -> IO GameState
 handleEvents SDL.Quit = \s -> SDL.quit >> return (running .~ False $ s)
-handleEvents (SDL.KeyDown key) = keyDown $ SDL.symKey key
+handleEvents (SDL.KeyDown key) = return . (keyDown $ SDL.symKey key)
 handleEvents (SDL.MouseButtonDown _ _ button) = mouseButtonDown button
 handleEvents _ = return
 
@@ -67,22 +67,22 @@ stepState state = grids %~ (next :) $ state
     next = step mapper . head $ state ^. grids
     mapper = if state ^. infinite then infiniteNeighbors else boundedNeighbors
 
-keyDown :: SDL.SDLKey -> GameState -> IO GameState
-keyDown SDL.SDLK_SPACE = return . stepState
-keyDown SDL.SDLK_BACKSPACE = return . (grids %~ prev)
+keyDown :: SDL.SDLKey -> GameState -> GameState
+keyDown SDL.SDLK_SPACE = stepState
+keyDown SDL.SDLK_BACKSPACE = grids %~ prev
   where prev xs
           | null . tail $ xs = xs
           | otherwise = tail xs
-keyDown SDL.SDLK_RETURN = return . (auto %~ not)
-keyDown SDL.SDLK_PLUS = return . (interval %~ substract)
+keyDown SDL.SDLK_RETURN = auto %~ not
+keyDown SDL.SDLK_PLUS = interval %~ substract
   where substract n = if 10 < n then n - 10 else n
-keyDown SDL.SDLK_MINUS = return . (interval %~ add)
+keyDown SDL.SDLK_MINUS = interval %~ add
   where add n = if n < 1500 then n + 10 else n
 keyDown SDL.SDLK_c = \s -> let (_, size) = bounds . head $ s ^. grids
-  in return (grids .~ [emptyGrid size] $ s)
-keyDown SDL.SDLK_t = return . (infinite %~ not)
-keyDown SDL.SDLK_q = return . (running .~ False)
-keyDown _ = return
+  in grids .~ [emptyGrid size] $ s
+keyDown SDL.SDLK_t = infinite %~ not
+keyDown SDL.SDLK_q = running .~ False
+keyDown _ = id
 
 mouseButtonDown :: SDL.MouseButton -> GameState -> IO GameState
 mouseButtonDown SDL.ButtonLeft state = do
