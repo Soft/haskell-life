@@ -5,7 +5,7 @@ module Life.Interface
 import Data.Array.IArray (assocs, bounds, (//), (!))
 import Control.Monad (when)
 import System.Exit (exitFailure)
-import Graphics.UI.SDL as SDL
+import qualified Graphics.UI.SDL as SDL
 import Data.Word (Word32, Word8)
 import Control.Lens
 import Life.Logic
@@ -28,7 +28,7 @@ initializeScreen = do
   SDL.init flags
   screen <- SDL.trySetVideoMode width height 32 surfaceFlags
   SDL.setCaption "Life" "life"
-  time <- getTicks
+  time <- SDL.getTicks
   case screen of
     Nothing -> exitFailure
     Just s -> gameLoop s time $ defaultState (emptyGrid gridSize)
@@ -43,23 +43,23 @@ gameLoop :: SDL.Surface -> Word32 -> GameState -> IO ()
 gameLoop screen time state = do
   (lastUpdate, state') <- performTimedEvents
   render screen state'
-  newState <- SDL.pollEvent >>= handleEvents state'
-  delay 10
+  newState <- SDL.pollEvent >>= flip handleEvents state'
+  SDL.delay 10
   when (newState ^. running) $ gameLoop screen lastUpdate newState
   where
     performTimedEvents = do
-      now <- getTicks
+      now <- SDL.getTicks
       let needsUpdate = (now - time) >= state ^. interval
       return $ if needsUpdate && state ^. auto then
                   (now, stepState state)
                 else
                   (time, state)
 
-handleEvents :: GameState -> SDL.Event -> IO GameState
-handleEvents state SDL.Quit = SDL.quit >> return (running .~ False $ state)
-handleEvents state (SDL.KeyDown key) = keyDown state (symKey key)
-handleEvents state (SDL.MouseButtonDown _ _ button) = mouseButtonDown state button
-handleEvents state _ = return state
+handleEvents :: SDL.Event -> GameState -> IO GameState
+handleEvents SDL.Quit = \s -> SDL.quit >> return (running .~ False $ s)
+handleEvents (SDL.KeyDown key) = keyDown $ SDL.symKey key
+handleEvents (SDL.MouseButtonDown _ _ button) = mouseButtonDown button
+handleEvents _ = return
 
 stepState :: GameState -> GameState
 stepState state = grids %~ (next :) $ state
@@ -67,25 +67,25 @@ stepState state = grids %~ (next :) $ state
     next = step mapper . head $ state ^. grids
     mapper = if state ^. infinite then infiniteNeighbors else boundedNeighbors
 
-keyDown :: GameState -> SDL.SDLKey -> IO GameState
-keyDown state SDLK_SPACE = return $ stepState state
-keyDown state SDLK_BACKSPACE = return (grids %~ prev $ state)
+keyDown :: SDL.SDLKey -> GameState -> IO GameState
+keyDown SDL.SDLK_SPACE = return . stepState
+keyDown SDL.SDLK_BACKSPACE = return . (grids %~ prev)
   where prev xs
           | null . tail $ xs = xs
           | otherwise = tail xs
-keyDown state SDLK_RETURN = return (auto %~ not $ state)
-keyDown state SDLK_PLUS = return (interval %~ substract $ state)
+keyDown SDL.SDLK_RETURN = return . (auto %~ not)
+keyDown SDL.SDLK_PLUS = return . (interval %~ substract)
   where substract n = if 10 < n then n - 10 else n
-keyDown state SDLK_MINUS = return (interval %~ add $ state)
+keyDown SDL.SDLK_MINUS = return . (interval %~ add)
   where add n = if n < 1500 then n + 10 else n
-keyDown state SDLK_c = return (grids .~ [emptyGrid gridSize] $ state)
-  where gridSize = let (_, size) = bounds . head $ state ^. grids in size
-keyDown state SDLK_t = return (infinite %~ not $ state)
-keyDown state SDLK_q = return (running .~ False $ state)
-keyDown state _ = return state
+keyDown SDL.SDLK_c = \s -> let (_, size) = bounds . head $ s ^. grids
+  in return (grids .~ [emptyGrid size] $ s)
+keyDown SDL.SDLK_t = return . (infinite %~ not)
+keyDown SDL.SDLK_q = return . (running .~ False)
+keyDown _ = return
 
-mouseButtonDown :: GameState -> SDL.MouseButton -> IO GameState
-mouseButtonDown state SDL.ButtonLeft = do
+mouseButtonDown :: SDL.MouseButton -> GameState -> IO GameState
+mouseButtonDown SDL.ButtonLeft state = do
   (x, y, _) <- SDL.getMouseState
   let coords = posToCoords x y
   let new = grid // [(coords, toggle $ grid ! coords)]
@@ -93,9 +93,9 @@ mouseButtonDown state SDL.ButtonLeft = do
   where
     posToCoords x y = (x `quot` 10, y `quot` 10)
     grid = head $ state ^. grids
-mouseButtonDown state _ = return state
+mouseButtonDown _ state = return state
 
-createColor :: SDL.Surface -> Word8 -> Word8 -> Word8 -> IO Pixel
+createColor :: SDL.Surface -> Word8 -> Word8 -> Word8 -> IO SDL.Pixel
 createColor surface = SDL.mapRGB $ SDL.surfaceGetPixelFormat surface
 
 drawGrid :: SDL.Surface -> Grid -> IO ()
@@ -103,16 +103,16 @@ drawGrid surface grid = do
   backgroundColor <- createColor surface 0xff 0xff 0xff
   borderColor <- createColor surface 0xef 0xef 0xef
   cellColor <- createColor surface 0x00 0x00 0x00
-  fillRect surface Nothing backgroundColor
+  SDL.fillRect surface Nothing backgroundColor
   sequence_ [hline 0 y 640 borderColor | y <- [0, 10..480]]
   sequence_ [vline x 0 480 borderColor | x <- [0, 10..640]]
   sequence_ [cell state coords cellColor | (coords, state) <- assocs grid]
   where
-    hline x y l = fillRect surface $ Just $ Rect x y l 1
-    vline x y l = fillRect surface $ Just $ Rect x y 1 l
-    cell Living coords = fillRect surface $ Just $ cellRect coords
+    hline x y l = SDL.fillRect surface $ Just $ SDL.Rect x y l 1
+    vline x y l = SDL.fillRect surface $ Just $ SDL.Rect x y 1 l
+    cell Living coords = SDL.fillRect surface $ Just $ cellRect coords
     cell Dead _ = const $ return True
-    cellRect coords = Rect (fst coords * 10) (snd coords * 10) 10 10
+    cellRect coords = SDL.Rect (fst coords * 10) (snd coords * 10) 10 10
 
 render :: SDL.Surface -> GameState -> IO ()
 render screen state = do
