@@ -59,8 +59,8 @@ gameLoop screen time state = do
 
 handleEvents :: SDL.Event -> GameState -> IO GameState
 handleEvents SDL.Quit = \s -> SDL.quit >> return (running .~ False $ s)
-handleEvents (SDL.KeyDown key) = return . (keyDown $ SDL.symKey key)
-handleEvents (SDL.MouseButtonDown _ _ button) = mouseButtonDown button
+handleEvents (SDL.KeyDown key) = return . keyDown (SDL.symKey key)
+handleEvents (SDL.MouseButtonDown x y button) = return . mouseButtonDown button (fromIntegral x) (fromIntegral y)
 handleEvents _ = return
 
 stepState :: GameState -> GameState
@@ -86,16 +86,14 @@ keyDown SDL.SDLK_t = infinite %~ not
 keyDown SDL.SDLK_q = running .~ False
 keyDown _ = id
 
-mouseButtonDown :: SDL.MouseButton -> GameState -> IO GameState
-mouseButtonDown SDL.ButtonLeft state = do
-  (x, y, _) <- SDL.getMouseState
-  let coords = posToCoords x y
-  let new = grid // [(coords, toggle $ grid ! coords)]
-  return (grids %~ (new <|) $ state)
+mouseButtonDown :: SDL.MouseButton -> Int -> Int -> GameState -> GameState
+mouseButtonDown SDL.ButtonLeft x y state = grids %~ (new <|) $ state
   where
-    posToCoords x y = (x `quot` 10, y `quot` 10)
+    coords = posToCoords x y
+    posToCoords a b = (a `quot` 10, b `quot` 10)
+    new = grid // [(coords, toggle $ grid ! coords)]
     grid = head $ state ^. grids
-mouseButtonDown _ state = return state
+mouseButtonDown _ _ _ state = state
 
 createColor :: SDL.Surface -> Word8 -> Word8 -> Word8 -> IO SDL.Pixel
 createColor surface = SDL.mapRGB $ SDL.surfaceGetPixelFormat surface
@@ -114,7 +112,7 @@ drawGrid surface grid = do
     vline x y l = SDL.fillRect surface $ Just $ SDL.Rect x y 1 l
     cell Living coords = SDL.fillRect surface $ Just $ cellRect coords
     cell Dead _ = const $ return True
-    cellRect coords = SDL.Rect (fst coords * 10) (snd coords * 10) 10 10
+    cellRect (a, b) = SDL.Rect (a * 10) (b * 10) 10 10
 
 render :: SDL.Surface -> GameState -> IO ()
 render screen state = do
