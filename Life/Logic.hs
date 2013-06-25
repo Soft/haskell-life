@@ -3,7 +3,7 @@ module Life.Logic
   , infiniteNeighbors, stepCell, emptyGrid) where
 
 import Data.Array.IArray
-import Control.Monad (liftM2, mapM_)
+import Control.Monad (liftM2)
 import Control.Arrow ((***), (&&&))
 import Data.List (delete)
 
