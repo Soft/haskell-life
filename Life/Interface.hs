@@ -25,6 +25,11 @@ makeLenses ''GameState
 defaultState :: Grid -> GameState
 defaultState grid = GameState (grid :| []) 100 True False True
 
+width = 640
+height = 480
+cellWidth = 10
+cellHeight = 10
+
 initializeScreen :: IO ()
 initializeScreen = do
   SDL.init flags
@@ -37,9 +42,7 @@ initializeScreen = do
   where
     flags = [SDL.InitVideo]
     surfaceFlags = [SDL.HWSurface]
-    gridSize = (width `quot` 10, height `quot` 10)
-    width = 640
-    height = 480
+    gridSize = (width `quot` cellWidth, height `quot` cellHeight)
 
 gameLoop :: SDL.Surface -> Word32 -> GameState -> IO ()
 gameLoop screen time state = do
@@ -87,7 +90,7 @@ mouseButtonDown :: SDL.MouseButton -> Int -> Int -> GameState -> GameState
 mouseButtonDown SDL.ButtonLeft x y state = grids %~ (new <|) $ state
   where
     coords = posToCoords x y
-    posToCoords a b = (a `quot` 10, b `quot` 10)
+    posToCoords a b = (a `quot` cellWidth, b `quot` cellHeight)
     new = grid // [(coords, toggle $ grid ! coords)]
     grid = head $ state ^. grids
 mouseButtonDown _ _ _ state = state
@@ -101,15 +104,15 @@ drawGrid surface grid = do
   borderColor <- createColor surface 0xef 0xef 0xef
   cellColor <- createColor surface 0x00 0x00 0x00
   SDL.fillRect surface Nothing backgroundColor
-  sequence_ [hline 0 y 640 borderColor | y <- [0, 10..480]]
-  sequence_ [vline x 0 480 borderColor | x <- [0, 10..640]]
+  sequence_ [hline 0 y width borderColor | y <- [0, cellHeight..height]]
+  sequence_ [vline x 0 height borderColor | x <- [0, cellWidth..width]]
   sequence_ [cell state coords cellColor | (coords, state) <- assocs grid]
   where
     hline x y l = SDL.fillRect surface $ Just $ SDL.Rect x y l 1
     vline x y l = SDL.fillRect surface $ Just $ SDL.Rect x y 1 l
     cell Living coords = SDL.fillRect surface $ Just $ cellRect coords
     cell Dead _ = const $ return True
-    cellRect (a, b) = SDL.Rect (a * 10) (b * 10) 10 10
+    cellRect (a, b) = SDL.Rect (a * cellWidth) (b * cellHeight) cellWidth cellHeight
 
 render :: SDL.Surface -> GameState -> IO ()
 render screen state = do
