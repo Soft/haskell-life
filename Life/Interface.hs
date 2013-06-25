@@ -49,13 +49,10 @@ gameLoop screen time state = do
   SDL.delay 10
   when (newState ^. running) $ gameLoop screen lastUpdate newState
   where
+    needsUpdate t = (t - time) >= state ^. interval && state ^. auto
     performTimedEvents = do
       now <- SDL.getTicks
-      let needsUpdate = (now - time) >= state ^. interval
-      return $ if needsUpdate && state ^. auto then
-                  (now, stepState state)
-                else
-                  (time, state)
+      return $ if needsUpdate now then (now, stepState state) else (time, state)
 
 handleEvents :: SDL.Event -> GameState -> IO GameState
 handleEvents SDL.Quit = \s -> SDL.quit >> return (running .~ False $ s)
